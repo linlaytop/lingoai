@@ -1,0 +1,110 @@
+{
+  "entities": {
+    "WordAnalysis": {
+      "title": "Word Analysis",
+      "description": "Details about a searched word or phrase",
+      "type": "object",
+      "properties": {
+        "word": { "type": "string" },
+        "phonetic": { "type": "string" },
+        "translation": { "type": "string" },
+        "definition": { "type": "string" },
+        "examples": { "type": "array", "items": { "type": "string" } },
+        "synonyms": { "type": "array", "items": { "type": "string" } },
+        "etymology": { "type": "string" },
+        "pattern": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "id": { "type": "string" }
+      },
+      "required": ["word", "translation", "definition", "timestamp", "id"]
+    },
+    "Flashcard": {
+      "title": "Flashcard",
+      "description": "A study card containing a word and its details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "front": { "type": "string" },
+        "back": { "type": "string" },
+        "details": { "$ref": "#/entities/WordAnalysis" },
+        "viewCount": { "type": "number" },
+        "lastReviewed": { "type": "number" },
+        "nextReviewDate": { "type": "number" },
+        "interval": { "type": "number" },
+        "easeFactor": { "type": "number" }
+      },
+      "required": ["id", "front", "back", "details"]
+    },
+    "CheckIn": {
+      "title": "Check In",
+      "description": "Daily activity record",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string" },
+        "count": { "type": "number" },
+        "items": { 
+          "type": "array", 
+          "items": { 
+            "type": "object",
+            "properties": {
+              "word": { "type": "string" },
+              "translation": { "type": "string" },
+              "pattern": { "type": "string" }
+            },
+            "required": ["word", "translation"]
+          }
+        }
+      },
+      "required": ["date", "count", "items"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Basic user information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "SongItem": {
+      "title": "Song Item",
+      "description": "A generated or uploaded song/media item with transcription",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["audio", "video"] },
+        "url": { "type": "string" },
+        "transcription": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["id", "name", "type", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile data"
+    },
+    "/users/{userId}/history/{wordId}": {
+      "schema": "WordAnalysis",
+      "description": "User's search history"
+    },
+    "/users/{userId}/flashcards/{cardId}": {
+      "schema": "Flashcard",
+      "description": "User's flashcard collection"
+    },
+    "/users/{userId}/checkIns/{date}": {
+      "schema": "CheckIn",
+      "description": "User's daily check-in records"
+    },
+    "/users/{userId}/customAudios/{audioId}": {
+      "schema": "SongItem",
+      "description": "User's collection of AI generated or uploaded custom audio items"
+    }
+  }
+}

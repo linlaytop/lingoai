@@ -1,0 +1,6 @@
+{
+  "name": "LingoAI",
+  "description": "An AI-powered English learning platform with word exploration, cloud sync history, and interactive flashcards. Built to help users master English with real-time AI analysis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
