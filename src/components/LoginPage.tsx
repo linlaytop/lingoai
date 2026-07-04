@@ -225,11 +225,6 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
             </button>
           </form>
 
-          {/* Admin hint */}
-          <div className="mt-6 p-3 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-700 flex items-center gap-2">
-            <Sparkles size={14} />
-            <span>管理员账号: admin@lingoai.com / admin123</span>
-          </div>
         </motion.div>
       </div>
     </div>
