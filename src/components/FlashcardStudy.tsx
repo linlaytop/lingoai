@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Volume2, VolumeX, ChevronLeft, ChevronRight, ChevronDown, RotateCcw, Book, ClipboardList, PlusCircle, Loader2, Send, Trash2, Sparkles, Edit2, Check, X, Settings2, Pause, Play, FileUp, FileType, Repeat, PlayCircle, RefreshCw, GraduationCap, Tag, Calendar, ListFilter } from 'lucide-react';
+import { Volume2, VolumeX, ChevronLeft, ChevronRight, ChevronDown, RotateCcw, Book, ClipboardList, PlusCircle, Loader2, Send, Trash2, Sparkles, Edit2, Check, X, Settings2, Pause, Play, FileUp, FileType, Repeat, PlayCircle, RefreshCw, GraduationCap, Tag, Calendar, ListFilter, Save } from 'lucide-react';
 import { Flashcard, WordAnalysis } from '../types';
 import { cn } from '../lib/utils';
 import { analyzeWord } from '../services/gemini';
+import { localDictionary } from '../lib/dictionary';
 import { speak, speakChinese, SpeechSpeed } from '../lib/audio';
 
 interface FlashcardStudyProps {
@@ -268,6 +269,7 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
   const [newWord, setNewWord] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isUpdatingDetails, setIsUpdatingDetails] = useState(false);
 
@@ -326,6 +328,43 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
       alert(error instanceof Error ? error.message : '添加失败');
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  // Quick save: directly save the input as a flashcard without full analysis
+  const handleQuickSave = async () => {
+    const text = newWord.trim();
+    if (!text || isSaving) return;
+
+    // Check for duplicates
+    const existing = cards.find(c => c.front.toLowerCase() === text.toLowerCase());
+    if (existing) {
+      alert(`「${text}」已经在您的闪卡库中了。`);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const isSentence = text.split(/\s+/).length > 3;
+      const analysis = localDictionary.analyze(text);
+      const card: Flashcard = {
+        id: crypto.randomUUID(),
+        front: text,
+        back: isSentence ? '(自定义句子)' : analysis.translation,
+        viewCount: 0,
+        details: analysis,
+        sentence: isSentence ? text : undefined,
+        tags: ['自定义'],
+      };
+      await onAddCards([card]);
+      setNewWord('');
+      setActiveSubTab('study');
+      setActiveGroupIndex(0);
+      setCurrentIndex(0);
+    } catch (error) {
+      alert('保存失败，请重试。');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1618,6 +1657,16 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
                      className="flex-1 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-[2rem] py-5 font-bold text-lg hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                    >
                      <PlusCircle size={22} /> 开始分析并添加
+                   </button>
+                   <button
+                     type="button"
+                     onClick={handleQuickSave}
+                     disabled={isSaving || !newWord.trim()}
+                     className="flex items-center justify-center gap-2 px-6 bg-green-50 text-green-700 rounded-[2rem] border-2 border-green-200 hover:bg-green-100 transition-all font-bold shadow-sm min-w-[140px] disabled:opacity-50"
+                     title="直接保存，无需 AI 分析"
+                   >
+                     {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
+                     <span className="text-sm">自动保存</span>
                    </button>
                    <label className="flex flex-col items-center justify-center px-6 bg-purple-50 text-purple-600 rounded-[2rem] border border-purple-100 hover:bg-purple-100 transition-all cursor-pointer shadow-sm min-w-[120px]" title="导入 PDF 单词本">
                      {isImporting ? <Loader2 className="animate-spin" size={24} /> : <FileUp size={24} />}
