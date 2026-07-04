@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Volume2, VolumeX, ChevronLeft, ChevronRight, ChevronDown, RotateCcw, Book, ClipboardList, PlusCircle, Loader2, Send, Trash2, Sparkles, Edit2, Check, X, Settings2, Pause, Play, FileUp, Repeat, PlayCircle, RefreshCw, GraduationCap, Tag, Calendar, ListFilter } from 'lucide-react';
+import { Volume2, VolumeX, ChevronLeft, ChevronRight, ChevronDown, RotateCcw, Book, ClipboardList, PlusCircle, Loader2, Send, Trash2, Sparkles, Edit2, Check, X, Settings2, Pause, Play, FileUp, FileType, Repeat, PlayCircle, RefreshCw, GraduationCap, Tag, Calendar, ListFilter } from 'lucide-react';
 import { Flashcard, WordAnalysis } from '../types';
 import { cn } from '../lib/utils';
 import { analyzeWord } from '../services/gemini';
@@ -353,6 +353,31 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
     }
   };
 
+  const handleWordImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || isImporting) return;
+
+    setIsImporting(true);
+    try {
+      const { processWordToFlashcards } = await import('../services/pdfService');
+      const importedCards = await processWordToFlashcards(file);
+      if (importedCards.length > 0) {
+        await onAddCards(importedCards);
+        alert(`成功导入 ${importedCards.length} 个单词/句子！`);
+        setActiveSubTab('study');
+      } else {
+        alert('未能从 Word 中识别到有效单词或句子。');
+      }
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error ? error.message : 'Word 解析失败，请检查文件格式或重试。';
+      alert(message);
+    } finally {
+      setIsImporting(false);
+      e.target.value = ''; // Reset input
+    }
+  };
+
   if (cards.length === 0 && activeSubTab !== 'add') {
     return (
       <div className="flex flex-col items-center justify-center h-[600px] space-y-6 text-center">
@@ -371,6 +396,11 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
             <FileUp size={20} />
             {isImporting ? '导入中...' : '导入 PDF 单词本'}
             <input type="file" accept=".pdf" className="hidden" onChange={handlePDFImport} disabled={isImporting} />
+          </label>
+          <label className="px-8 py-3 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-700 transition-all cursor-pointer flex items-center gap-2">
+            <FileType size={20} />
+            {isImporting ? '导入中...' : '导入 Word 单词本'}
+            <input type="file" accept=".docx" className="hidden" onChange={handleWordImport} disabled={isImporting} />
           </label>
         </div>
       </div>
@@ -1589,10 +1619,15 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
                    >
                      <PlusCircle size={22} /> 开始分析并添加
                    </button>
-                   <label className="flex flex-col items-center justify-center px-8 bg-purple-50 text-purple-600 rounded-[2rem] border border-purple-100 hover:bg-purple-100 transition-all cursor-pointer shadow-sm min-w-[140px]" title="导入 PDF 单词本">
+                   <label className="flex flex-col items-center justify-center px-6 bg-purple-50 text-purple-600 rounded-[2rem] border border-purple-100 hover:bg-purple-100 transition-all cursor-pointer shadow-sm min-w-[120px]" title="导入 PDF 单词本">
                      {isImporting ? <Loader2 className="animate-spin" size={24} /> : <FileUp size={24} />}
                      <span className="text-[10px] font-black mt-1 uppercase tracking-wider">PDF 导入</span>
                      <input type="file" accept=".pdf" className="hidden" onChange={handlePDFImport} disabled={isImporting} />
+                   </label>
+                   <label className="flex flex-col items-center justify-center px-6 bg-emerald-50 text-emerald-600 rounded-[2rem] border border-emerald-100 hover:bg-emerald-100 transition-all cursor-pointer shadow-sm min-w-[120px]" title="导入 Word 单词本">
+                     {isImporting ? <Loader2 className="animate-spin" size={24} /> : <FileType size={24} />}
+                     <span className="text-[10px] font-black mt-1 uppercase tracking-wider">Word 导入</span>
+                     <input type="file" accept=".docx" className="hidden" onChange={handleWordImport} disabled={isImporting} />
                    </label>
                  </div>
                </form>
