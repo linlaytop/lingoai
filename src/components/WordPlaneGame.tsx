@@ -76,9 +76,14 @@ export function WordPlaneGame({ cards, onClose }: WordPlaneGameProps) {
         if (extracted && extracted.length > 0) {
           finalWords = extracted.slice(0, 50);
         } else {
-          finalWords = cards.map(c => ({ en: c.front, cn: c.back }));
+          finalWords = cards.map(c => {
+            const cn = c.details?.translation && !c.details.translation.includes('暂无')
+              ? c.details.translation
+              : (c.back && c.back !== '(自定义句子)' ? c.back : '(暂无翻译)');
+            return { en: c.front, cn };
+          });
         }
-        
+
         // Shuffle for variety
         finalWords = [...finalWords].sort(() => Math.random() - 0.5);
         setWords(finalWords);
@@ -87,7 +92,12 @@ export function WordPlaneGame({ cards, onClose }: WordPlaneGameProps) {
         setProgress(0);
       } catch (e) {
         console.error("Game word load error:", e);
-        setWords(cards.map(c => ({ en: c.front, cn: c.back })));
+        setWords(cards.map(c => {
+          const cn = c.details?.translation && !c.details.translation.includes('暂无')
+            ? c.details.translation
+            : (c.back && c.back !== '(自定义句子)' ? c.back : '(暂无翻译)');
+          return { en: c.front, cn };
+        }));
       } finally {
         setGameState('playing');
         setIsInitializing(false);

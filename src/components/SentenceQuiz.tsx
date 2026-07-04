@@ -147,10 +147,15 @@ export function SentenceQuiz({ cards, onUpdateCard, onAddCards, onNavigate }: Se
           setIsDeconstructing(false);
         }).catch((err) => {
           console.warn("AI deconstruction failed or empty, falling back to card words:", err);
-          // Fallback to cards if AI fails
+          // Fallback to cards if AI fails - always use a real Chinese translation
           const selected = newShuffled.slice(0, 5);
           const enItems = selected.map((c, i) => ({ id: `word-${i}`, text: c.front, type: 'en' as const }));
-          const cnItems = selected.map((c, i) => ({ id: `word-${i}`, text: c.back, type: 'cn' as const }));
+          const cnItems = selected.map((c, i) => {
+            const cn = c.details?.translation && !c.details.translation.includes('暂无')
+              ? c.details.translation
+              : (c.back && c.back !== '(自定义句子)' ? c.back : '(暂无翻译)');
+            return { id: `word-${i}`, text: cn, type: 'cn' as const };
+          });
           setLeftMatchItems(enItems.sort(() => Math.random() - 0.5));
           setRightMatchItems(cnItems.sort(() => Math.random() - 0.5));
           setIsDeconstructing(false);
@@ -184,7 +189,12 @@ export function SentenceQuiz({ cards, onUpdateCard, onAddCards, onNavigate }: Se
       if (matchedIds.length + 1 === totalPairsInSet) {
         setTimeout(() => {
           const nextIndex = currentQuizIndex + 5;
-          const source = deconstructedWords.length > 0 ? deconstructedWords : shuffledCards.map(c => ({ en: c.front, cn: c.back }));
+          const source = deconstructedWords.length > 0 ? deconstructedWords : shuffledCards.map(c => {
+            const cn = c.details?.translation && !c.details.translation.includes('暂无')
+              ? c.details.translation
+              : (c.back && c.back !== '(自定义句子)' ? c.back : '(暂无翻译)');
+            return { en: c.front, cn };
+          });
           
           if (nextIndex < source.length) {
             setCurrentQuizIndex(nextIndex);

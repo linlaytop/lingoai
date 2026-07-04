@@ -347,12 +347,17 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
     try {
       const isSentence = text.split(/\s+/).length > 3;
       const analysis = localDictionary.analyze(text);
+      // Always use the real translation from analysis, regardless of whether input is a word or sentence.
+      // Falls back to '(暂无翻译)' only if the dictionary truly has no translation.
+      const translation = analysis.translation && !analysis.translation.includes('暂无')
+        ? analysis.translation
+        : (isSentence ? '(句子 - 暂无翻译)' : '暂无翻译');
       const card: Flashcard = {
         id: crypto.randomUUID(),
         front: text,
-        back: isSentence ? '(自定义句子)' : analysis.translation,
+        back: translation,
         viewCount: 0,
-        details: analysis,
+        details: { ...analysis, translation },
         sentence: isSentence ? text : undefined,
         tags: ['自定义'],
       };

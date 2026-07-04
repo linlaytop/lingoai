@@ -23,7 +23,12 @@ interface Zombie {
 }
 
 export function ZombieEnglishGame({ cards, onClose }: ZombieEnglishGameProps) {
-  const flashcards = cards.length > 0 ? cards.map(c => ({ word: c.front, meaning: c.back })) : [
+  const flashcards = cards.length > 0 ? cards.map(c => {
+    const meaning = c.details?.translation && !c.details.translation.includes('暂无')
+      ? c.details.translation
+      : (c.back && c.back !== '(自定义句子)' ? c.back : '(暂无翻译)');
+    return { word: c.front, meaning };
+  }) : [
     { word: 'apple', meaning: '苹果' },
     { word: 'environment', meaning: '环境' },
     { word: 'conversation', meaning: '对话' },

@@ -42,7 +42,12 @@ export function DialoguePractice({ user, onClose }: DialoguePracticeProps) {
       const { processPDFToFlashcards } = await import('../services/pdfService');
       const cards = await processPDFToFlashcards(file);
       if (cards.length > 0) {
-        const vocabList = cards.map(c => `${c.front} (${c.back})`).join(', ');
+        const vocabList = cards.map(c => {
+          const cn = c.details?.translation && !c.details.translation.includes('暂无')
+            ? c.details.translation
+            : (c.back && c.back !== '(自定义句子)' ? c.back : '(暂无翻译)');
+          return `${c.front} (${cn})`;
+        }).join(', ');
         const newContext = `Please create a dialogue practicing these words: ${vocabList}`;
         setContext(newContext);
         saveToCloud(newContext);

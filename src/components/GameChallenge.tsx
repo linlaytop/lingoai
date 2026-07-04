@@ -56,13 +56,17 @@ export function GameChallenge({ cards, onAddCards, onClose }: GameChallengeProps
 
   const generateOptions = (card: Flashcard) => {
     if (!card) return;
-    const correct = card.back;
+    const correct = card.details?.translation && !card.details.translation.includes('暂无')
+      ? card.details.translation
+      : (card.back && card.back !== '(自定义句子)' ? card.back : '(暂无翻译)');
     const distractors = cards
       .filter(c => c.id !== card.id)
-      .map(c => c.back)
+      .map(c => c.details?.translation && !c.details.translation.includes('暂无')
+        ? c.details.translation
+        : (c.back && c.back !== '(自定义句子)' ? c.back : '(暂无翻译)'))
       .sort(() => 0.5 - Math.random())
       .slice(0, 3);
-    
+
     const all = [correct, ...distractors].sort(() => 0.5 - Math.random());
     setOptions(all);
   };

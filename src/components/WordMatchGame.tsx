@@ -36,8 +36,15 @@ export function WordMatchGame({ cards, onClose }: WordMatchGameProps) {
         prepareSet(words, 0);
       } catch (error) {
         console.warn("AI deconstruction failed or empty, falling back to basic cards:", error);
-        // Fallback to basic cards if AI deconstruction fails
-        const words = cards.slice(0, 20).map(c => ({ en: c.front, cn: c.back }));
+        // Fallback to basic cards if AI deconstruction fails.
+        // Use the card's stored translation (details.translation -> back) so
+        // every card always has a real Chinese side, never a placeholder.
+        const words = cards.slice(0, 20).map(c => {
+          const cn = c.details?.translation && !c.details.translation.includes('暂无')
+            ? c.details.translation
+            : (c.back && c.back !== '(自定义句子)' ? c.back : '(暂无翻译)');
+          return { en: c.front, cn };
+        });
         setDeconstructedWords(words);
         prepareSet(words, 0);
       } finally {

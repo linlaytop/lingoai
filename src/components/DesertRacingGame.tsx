@@ -39,6 +39,13 @@ export function DesertRacingGame({ cards, onClose }: DesertRacingGameProps) {
   const [speed, setSpeed] = useState(150); // Reduced base speed for easier gameplay
   const [flashcard, setFlashcard] = useState(cards[Math.floor(Math.random() * cards.length)]);
 
+  // Resolve a card's Chinese translation, falling back through details -> back -> placeholder
+  const resolveCn = (c: Flashcard) => {
+    if (c.details?.translation && !c.details.translation.includes('暂无')) return c.details.translation;
+    if (c.back && c.back !== '(自定义句子)') return c.back;
+    return '(暂无翻译)';
+  };
+
   // Internal refs for performance loop
   const itemsRef = useRef<GameItem[]>([]);
   const particlesRef = useRef<TrailParticle[]>([]);
@@ -77,15 +84,17 @@ export function DesertRacingGame({ cards, onClose }: DesertRacingGameProps) {
     const spawnWord = () => {
       const isCorrect = Math.random() > 0.4;
       const card = isCorrect ? flashcard : cards[Math.floor(Math.random() * cards.length)];
-      const word = isCorrect ? (card.answer || card.back || "") : (card.options?.[Math.floor(Math.random() * (card.options?.length || 1))] || card.front || "");
-      
+      const word = isCorrect
+        ? (card.answer || resolveCn(card))
+        : (card.options?.[Math.floor(Math.random() * (card.options?.length || 1))] || card.front || "");
+
       ctx.font = 'bold 18px Inter';
       const textWidth = ctx.measureText(word).width;
 
       itemsRef.current.push({
         id: Math.random().toString(36),
         word,
-        correct: isCorrect && word === (flashcard.answer || flashcard.back || ""),
+        correct: isCorrect && word === (flashcard.answer || resolveCn(flashcard)),
         x: Math.random() * (canvas.width - 100) + 50,
         y: -50,
         width: textWidth + 40,
@@ -300,7 +309,7 @@ export function DesertRacingGame({ cards, onClose }: DesertRacingGameProps) {
         <div className="w-full max-w-xl mx-auto bg-black/50 backdrop-blur-xl p-6 rounded-[30px] border border-white/10 text-center shadow-2xl">
           <div className="text-yellow-400 text-sm font-black tracking-widest uppercase mb-2">Target Challenge</div>
           <p className="text-3xl font-bold leading-tight text-white">
-            {(flashcard.sentence || flashcard.front).split(flashcard.answer || flashcard.back || "").map((part, i, arr) => (
+            {(flashcard.sentence || flashcard.front).split(flashcard.answer || resolveCn(flashcard)).map((part, i, arr) => (
               <React.Fragment key={i}>
                 {part}
                 {i < arr.length - 1 && <span className="text-cyan-400 border-b-4 border-cyan-400 px-2 mx-1 italic">_____</span>}
