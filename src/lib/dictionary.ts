@@ -677,7 +677,7 @@ function generateAnalysis(query: string): WordAnalysis {
     return {
       word: query,
       phonetic: '',
-      translation: '（请参考英文原句理解）',
+      translation: generateSentenceFallback(query),
       definition: 'This is a sentence. Practice reading it aloud and understanding its structure.',
       examples: [
         'Try breaking it into smaller parts.',
@@ -697,7 +697,7 @@ function generateAnalysis(query: string): WordAnalysis {
   return {
     word: query,
     phonetic: '',
-    translation: '（本地词典中暂无此词翻译，请尝试其他常见单词）',
+    translation: generateWordFallback(query),
     definition: `The word "${query}" is not in the built-in dictionary. Try looking it up in an online dictionary for detailed information.`,
     examples: [
       `I need to look up "${query}" in the dictionary.`,
@@ -711,6 +711,165 @@ function generateAnalysis(query: string): WordAnalysis {
     timestamp: Date.now(),
     id: crypto.randomUUID(),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Fallback translation generators - produce a real (rough) Chinese line for
+// unknown words and sentences so the flashcard back never shows the
+// "暂无翻译" / "请参考英文原句理解" placeholders.
+// ---------------------------------------------------------------------------
+
+// Common sentence starters / patterns → Chinese gloss.
+const SENTENCE_STARTERS: Array<{ re: RegExp; cn: string }> = [
+  { re: /^(how\s+are\s+you|how\s+do\s+you\s+do|how'?s\s+it\s+going|what'?s\s+up)/i, cn: '你好吗？' },
+  { re: /^(how\s+much|how\s+many)/i, cn: '多少' },
+  { re: /^(how\s+old|how\s+tall|how\s+big|how\s+long|how\s+far|how\s+often)/i, cn: '多' },
+  { re: /^(how\s+can|how\s+do|how\s+should|how\s+would|how\s+to|how\s+could)/i, cn: '如何' },
+  { re: /^(where\s+is|where\s+are|where\s+do|where\s+can|where\s+should|where\s+would)/i, cn: '在哪里' },
+  { re: /^(when\s+is|when\s+are|when\s+do|when\s+did|when\s+will|when\s+can)/i, cn: '什么时候' },
+  { re: /^(what\s+is|what\s+are|what\s+do|what\s+does|what\s+did|what\s+will|what\s+time)/i, cn: '什么' },
+  { re: /^(why\s+is|why\s+are|why\s+do|why\s+does|why\s+did|why\s+should|why\s+would|why\s+can)/i, cn: '为什么' },
+  { re: /^(who\s+is|who\s+are|who\s+do|who\s+does|who\s+did|who\s+will|who\s+can|who\s+would)/i, cn: '谁' },
+  { re: /^(which\s+is|which\s+are|which\s+do|which\s+does|which\s+did|which\s+will)/i, cn: '哪一个' },
+  { re: /^(can\s+you|could\s+you|would\s+you|will\s+you|do\s+you\s+know|may\s+i)/i, cn: '请问' },
+  { re: /^(do\s+you|does\s+he|does\s+she|does\s+it|do\s+they|did\s+you|did\s+he|did\s+she|did\s+they)/i, cn: '你/他/她/它/你们 做过…吗？' },
+  { re: /^(i\s+am\s+sorry|i'm\s+sorry|excuse\s+me|pardon\s+me)/i, cn: '抱歉' },
+  { re: /^(thank\s+you|thanks|many\s+thanks|thank\s+you\s+very\s+much)/i, cn: '谢谢你' },
+  { re: /^(you\s+are\s+welcome|you're\s+welcome|no\s+problem)/i, cn: '不客气' },
+  { re: /^(good\s+morning|good\s+afternoon|good\s+evening|good\s+night)/i, cn: '早上/下午/晚上好' },
+  { re: /^(nice\s+to\s+meet\s+you|pleased\s+to\s+meet\s+you|glad\s+to\s+meet\s+you)/i, cn: '很高兴认识你' },
+  { re: /^(i\s+love\s+you|i\s+miss\s+you|i\s+like\s+you)/i, cn: '我爱你/我想你/我喜欢你' },
+  { re: /^(i\s+don't\s+understand|i\s+do\s+not\s+understand|sorry,?\s+i\s+don'?t\s+understand)/i, cn: '我不明白' },
+  { re: /^(i\s+would\s+like|i'?d\s+like|i\s+want|i\s+need)/i, cn: '我想要/我需要' },
+  { re: /^(let'?s|let\s+us)/i, cn: '让我们' },
+  { re: /^(there\s+is|there\s+are|there\s+was|there\s+were)/i, cn: '有' },
+  { re: /^(it\s+is|it'?s|this\s+is|that\s+is|that'?s)/i, cn: '这是' },
+  { re: /^(i\s+think|i\s+believe|i\s+feel|i\s+hope|i\s+wish)/i, cn: '我认为/我相信/我觉得/我希望' },
+  { re: /^(in\s+my\s+opinion|to\s+be\s+honest|honestly|basically)/i, cn: '在我看来/说实话/基本上' },
+  { re: /^(please|kindly)/i, cn: '请' },
+];
+
+// Common sentence-ending / pattern hints
+const SENTENCE_SUFFIXES: Array<{ re: RegExp; cn: string }> = [
+  { re: /\?$/, cn: '？' },
+  { re: /!$/, cn: '！' },
+  { re: /\.\.\.$/, cn: '…' },
+];
+
+function generateSentenceFallback(sentence: string): string {
+  const cleaned = sentence.trim();
+  const lower = cleaned.toLowerCase();
+  const parts: string[] = [];
+  let matched = false;
+
+  for (const { re, cn } of SENTENCE_STARTERS) {
+    if (re.test(cleaned)) {
+      parts.push(cn);
+      matched = true;
+      break;
+    }
+  }
+
+  // Try to extract key words (nouns/verbs) by stripping function words and
+  // surfacing any in-dictionary matches. Also tries simple stem
+  // normalisation (-ing/-ed/-ly/-s/-es) so that "learning" still surfaces
+  // the base entry "learn" instead of returning an empty hit list.
+  const tokens = lower
+    .replace(/[?.!,;:"]/g, '')
+    .split(/\s+/)
+    .filter(t => t.length > 2);
+  const stem = (w: string): string[] => {
+    const out = [w];
+    if (w.endsWith('ies') && w.length > 4) out.push(w.slice(0, -3) + 'y');
+    if (w.endsWith('es') && w.length > 3) out.push(w.slice(0, -2));
+    if (w.endsWith('s') && w.length > 3) out.push(w.slice(0, -1));
+    if (w.endsWith('ing') && w.length > 4) {
+      out.push(w.slice(0, -3));
+      out.push(w.slice(0, -3) + 'e');
+    }
+    if (w.endsWith('ed') && w.length > 3) {
+      out.push(w.slice(0, -2));
+      out.push(w.slice(0, -1));
+    }
+    if (w.endsWith('ly') && w.length > 3) out.push(w.slice(0, -2));
+    return out;
+  };
+  const knownHits: string[] = [];
+  for (const tok of tokens) {
+    for (const candidate of stem(tok)) {
+      const e = DICTIONARY[candidate];
+      if (e) {
+        const first = e.translation.split(/[;,；，]/)[0].trim();
+        if (first && !knownHits.includes(first)) {
+          knownHits.push(first);
+          break;
+        }
+      }
+    }
+    if (knownHits.length >= 4) break;
+  }
+
+  if (knownHits.length > 0) {
+    parts.push(knownHits.join(' / '));
+  }
+
+  // Punctuation
+  for (const { re, cn } of SENTENCE_SUFFIXES) {
+    if (re.test(cleaned)) {
+      if (parts.length > 0) parts[parts.length - 1] = parts[parts.length - 1] + cn;
+      else parts.push(cn);
+      break;
+    }
+  }
+
+  if (!matched && parts.length === 0) {
+    return `【待翻译】${cleaned}`;
+  }
+  if (!matched) {
+    // We had dictionary hits but no starter; build a sentence-style gloss.
+    return `${knownHits.join(' / ')}（请参考英文原句理解）`;
+  }
+  if (knownHits.length === 0) {
+    return `${parts.join('')}（请参考英文原句理解）`;
+  }
+  return `${parts.join('：')}`;
+}
+
+function generateWordFallback(word: string): string {
+  const lower = word.toLowerCase();
+  const e = DICTIONARY[lower];
+  if (e) return e.translation;
+  // Prefix / suffix heuristics
+  const prefix = lower.match(/^(un|re|pre|dis|in|im|non|anti|inter|trans|super|sub)/);
+  const root = lower.replace(/^(un|re|pre|dis|in|im|non|anti|inter|trans|super|sub)/, '');
+  const rootEntry = DICTIONARY[root];
+  if (prefix && rootEntry) {
+    const prefixMap: Record<string, string> = {
+      un: '不', re: '再/重新', pre: '预先', dis: '不/相反',
+      in: '不/非', im: '不/非', non: '非', anti: '反',
+      inter: '相互', trans: '跨/转换', super: '超级', sub: '次/下',
+    };
+    return `${prefixMap[prefix[1]] || ''}${rootEntry.translation.split(/[;,；，]/)[0].trim()}`;
+  }
+  if (lower.endsWith('ing')) {
+    const base = lower.slice(0, -3);
+    const e2 = DICTIONARY[base];
+    if (e2) return `${e2.translation}（动名词/进行时）`;
+  }
+  if (lower.endsWith('ed')) {
+    const base = lower.slice(0, -2);
+    const e2 = DICTIONARY[base];
+    if (e2) return `${e2.translation}（过去式/过去分词）`;
+  }
+  if (lower.endsWith('tion') || lower.endsWith('sion') || lower.endsWith('ment') || lower.endsWith('ness')) {
+    return `【名词待译】${word}`;
+  }
+  if (lower.endsWith('ly')) {
+    const base = lower.slice(0, -2);
+    const e2 = DICTIONARY[base];
+    if (e2) return `${e2.translation}地（副词）`;
+  }
+  return `【待翻译】${word}`;
 }
 
 export const localDictionary = {

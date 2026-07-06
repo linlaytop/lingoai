@@ -385,11 +385,14 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
     try {
       const isSentence = text.split(/\s+/).length > 3;
       const analysis = localDictionary.analyze(text);
-      // Always use the real translation from analysis, regardless of whether input is a word or sentence.
-      // Falls back to '(暂无翻译)' only if the dictionary truly has no translation.
+      // Always use the real translation from analysis. The dictionary now
+      // produces a concrete Chinese line for unknown words/sentences
+      // (e.g. "【待翻译】xxx" or "如何…请参考英文原句理解"), so we trust it
+      // and only override the literal "(暂无翻译)" placeholder from older
+      // code paths.
       const translation = analysis.translation && !analysis.translation.includes('暂无')
         ? analysis.translation
-        : (isSentence ? '(句子 - 暂无翻译)' : '暂无翻译');
+        : (isSentence ? '（请参考英文原句理解）' : '（请在编辑中补充中文）');
       const card: Flashcard = {
         id: crypto.randomUUID(),
         front: text,
@@ -771,7 +774,19 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
                        </button>
                     </div>
                     <div className="absolute top-12 right-12 flex items-center gap-3">
-                       <button 
+                       <button
+                         onClick={(e) => { e.stopPropagation(); currentCard && handleUpdateDetails(currentCard); }}
+                         disabled={isUpdatingDetails}
+                         className={cn(
+                           "p-4 rounded-2xl border transition-all hover:scale-105 active:scale-95",
+                           "bg-indigo-50 border-indigo-100 text-indigo-500",
+                           isUpdatingDetails && "opacity-50 cursor-not-allowed"
+                         )}
+                         title="AI 重新翻译"
+                       >
+                          {isUpdatingDetails ? <Loader2 className="animate-spin" size={24} /> : <Sparkles size={24} />}
+                       </button>
+                       <button
                          onClick={(e) => {
                            e.stopPropagation();
                            if (isEditing) {
@@ -1178,7 +1193,19 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
                            )}
                         </div>
                         <div className="absolute top-8 right-8 flex items-center gap-3">
-                           <button 
+                           <button
+                             onClick={(e) => { e.stopPropagation(); currentCard && handleUpdateDetails(currentCard); }}
+                             disabled={isUpdatingDetails}
+                             className={cn(
+                               "p-3 rounded-xl border transition-all",
+                               "bg-indigo-50 border-indigo-100 text-indigo-500 hover:text-indigo-700 hover:border-indigo-200 shadow-sm",
+                               isUpdatingDetails && "opacity-50 cursor-not-allowed"
+                             )}
+                             title="AI 重新翻译"
+                           >
+                              {isUpdatingDetails ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
+                           </button>
+                           <button
                              onClick={(e) => {
                                e.stopPropagation();
                                if (isEditing) {
