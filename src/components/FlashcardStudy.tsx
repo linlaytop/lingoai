@@ -42,6 +42,7 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
   const [useAI, setUseAI] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
+  const [editFrontValue, setEditFrontValue] = useState('');
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const [isLooping, setIsLooping] = useState(false);
   const [isZenMode, setIsZenMode] = useState(false);
@@ -73,14 +74,24 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
     const [isAddingTag, setIsAddingTag] = useState(false);
     const [newTag, setNewTag] = useState('');
     const [isEditingCard, setIsEditingCard] = useState(false);
+    const [editFront, setEditFront] = useState(card.front);
     const [editTranslation, setEditTranslation] = useState(card.details?.translation || '');
+    const [editDefinition, setEditDefinition] = useState(card.details?.definition || '');
 
     const handleSaveLocalEdit = (e: React.MouseEvent) => {
       e.stopPropagation();
+      const trimmedFront = editFront.trim();
+      if (!trimmedFront) {
+        alert('英文内容不能为空');
+        return;
+      }
       onUpdateCard(card.id, {
+        front: trimmedFront,
+        back: editTranslation.trim() || editTranslation,
         details: {
           ...card.details,
-          translation: editTranslation
+          translation: editTranslation.trim(),
+          definition: editDefinition.trim(),
         }
       });
       setIsEditingCard(false);
@@ -115,7 +126,9 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
                <button 
                   onClick={(e) => { 
                     e.stopPropagation(); 
+                    setEditFront(card.front);
                     setEditTranslation(card.details?.translation || '');
+                    setEditDefinition(card.details?.definition || '');
                     setIsEditingCard(true); 
                   }}
                   className="p-2 text-gray-300 hover:text-indigo-500 rounded-xl transition-all"
@@ -134,28 +147,53 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
          </div>
          
          {isEditingCard ? (
-           <div className="mb-4 space-y-2">
-             <textarea 
-               autoFocus
-               value={editTranslation}
-               onChange={(e) => setEditTranslation(e.target.value)}
-               onClick={(e) => e.stopPropagation()}
-               className="w-full p-3 bg-gray-50 border border-indigo-100 rounded-xl text-sm font-medium focus:border-indigo-400 outline-none resize-none"
-               rows={2}
-               placeholder="输入翻译..."
-             />
+           <div className="mb-4 space-y-3">
+             <div>
+               <label className="block text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">英文 / 句子</label>
+               <textarea 
+                 autoFocus
+                 value={editFront}
+                 onChange={(e) => setEditFront(e.target.value)}
+                 onClick={(e) => e.stopPropagation()}
+                 className="w-full p-3 bg-blue-50 border border-blue-100 rounded-xl text-sm font-bold text-gray-900 focus:border-blue-400 outline-none resize-none"
+                 rows={2}
+                 placeholder="输入英文单词或句子..."
+               />
+             </div>
+             <div>
+               <label className="block text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">中文翻译</label>
+               <textarea 
+                 value={editTranslation}
+                 onChange={(e) => setEditTranslation(e.target.value)}
+                 onClick={(e) => e.stopPropagation()}
+                 className="w-full p-3 bg-gray-50 border border-indigo-100 rounded-xl text-sm font-medium focus:border-indigo-400 outline-none resize-none"
+                 rows={2}
+                 placeholder="输入中文翻译..."
+               />
+             </div>
+             <div>
+               <label className="block text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">英文释义 (可选)</label>
+               <textarea 
+                 value={editDefinition}
+                 onChange={(e) => setEditDefinition(e.target.value)}
+                 onClick={(e) => e.stopPropagation()}
+                 className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl text-sm text-gray-600 focus:border-gray-400 outline-none resize-none"
+                 rows={2}
+                 placeholder="English definition..."
+               />
+             </div>
              <div className="flex justify-end gap-2">
                <button 
                  onClick={(e) => { e.stopPropagation(); setIsEditingCard(false); }}
-                 className="px-3 py-1 text-[10px] font-bold text-gray-400 hover:text-gray-600"
+                 className="px-4 py-1.5 bg-gray-100 text-gray-500 rounded-lg text-xs font-bold hover:bg-gray-200 transition-colors"
                >
                  取消
                </button>
                <button 
                  onClick={handleSaveLocalEdit}
-                 className="px-3 py-1 bg-indigo-600 text-white rounded-lg text-[10px] font-bold hover:bg-indigo-700 transition-colors shadow-sm"
+                 className="px-4 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-colors shadow-sm flex items-center gap-1"
                >
-                 保存
+                 <Check size={12} /> 保存
                </button>
              </div>
            </div>
@@ -510,10 +548,14 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
   const handleSaveEdit = (e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (currentCard) {
+      const trimmedFront = editFrontValue.trim();
+      const trimmedTranslation = editValue.trim();
       onUpdateCard(currentCard.id, {
+        front: trimmedFront || currentCard.front,
+        back: trimmedTranslation || currentCard.back,
         details: {
           ...currentCard.details,
-          translation: editValue
+          translation: trimmedTranslation || currentCard.details?.translation,
         }
       });
       setIsEditing(false);
@@ -735,7 +777,8 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
                            if (isEditing) {
                              handleSaveEdit();
                            } else {
-                             setEditValue(currentCard.details.translation);
+                             setEditFrontValue(currentCard.front);
+                             setEditValue(currentCard.details?.translation || '');
                              setIsEditing(true);
                            }
                          }}
@@ -754,14 +797,27 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
                     <div className="flex flex-col items-center text-center gap-4 w-full max-w-2xl px-1 overflow-y-auto max-h-[80%]">
                          {isEditing ? (
                            <div className="w-full space-y-4">
-                             <textarea
-                               autoFocus
-                               value={editValue}
-                               onClick={(e) => e.stopPropagation()}
-                               onChange={(e) => setEditValue(e.target.value)}
-                               className="w-full bg-gray-50 border-2 border-indigo-100 rounded-[2rem] p-8 text-center text-4xl font-bold text-gray-900 focus:border-indigo-400 outline-none resize-none shadow-inner"
-                               rows={2}
-                             />
+                             <div>
+                               <label className="block text-xs font-bold text-blue-400 mb-2 uppercase tracking-wider">英文 / 句子</label>
+                               <textarea
+                                 value={editFrontValue}
+                                 onClick={(e) => e.stopPropagation()}
+                                 onChange={(e) => setEditFrontValue(e.target.value)}
+                                 className="w-full bg-blue-50 border-2 border-blue-100 rounded-[2rem] p-6 text-center text-3xl font-bold text-gray-900 focus:border-blue-400 outline-none resize-none shadow-inner"
+                                 rows={2}
+                               />
+                             </div>
+                             <div>
+                               <label className="block text-xs font-bold text-indigo-400 mb-2 uppercase tracking-wider">中文翻译</label>
+                               <textarea
+                                 autoFocus
+                                 value={editValue}
+                                 onClick={(e) => e.stopPropagation()}
+                                 onChange={(e) => setEditValue(e.target.value)}
+                                 className="w-full bg-gray-50 border-2 border-indigo-100 rounded-[2rem] p-6 text-center text-3xl font-bold text-gray-900 focus:border-indigo-400 outline-none resize-none shadow-inner"
+                                 rows={2}
+                               />
+                             </div>
                              <div className="flex justify-center gap-4">
                                <button 
                                  onClick={(e) => { e.stopPropagation(); setIsEditing(false); }}
@@ -771,9 +827,9 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
                                </button>
                                <button 
                                  onClick={handleSaveEdit}
-                                 className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors"
+                                 className="px-6 py-2 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-colors flex items-center gap-1"
                                >
-                                 保存修改
+                                 <Check size={16} /> 保存修改
                                </button>
                              </div>
                            </div>
@@ -1128,10 +1184,9 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
                                if (isEditing) {
                                  handleSaveEdit();
                                } else {
-                                 if (currentCard?.details?.translation) {
-                                   setEditValue(currentCard.details.translation);
-                                   setIsEditing(true);
-                                 }
+                                 setEditFrontValue(currentCard.front);
+                                 setEditValue(currentCard?.details?.translation || '');
+                                 setIsEditing(true);
                                }
                              }}
                              className={cn(
@@ -1150,14 +1205,27 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
                         <div className="text-center py-2 flex-1 flex flex-col items-center justify-center w-full px-4 overflow-y-auto max-h-[85%]">
                            {isEditing ? (
                              <div className="w-full space-y-3">
-                               <textarea
-                                 autoFocus
-                                 value={editValue}
-                                 onClick={(e) => e.stopPropagation()}
-                                 onChange={(e) => setEditValue(e.target.value)}
-                                 className="w-full bg-gray-50 border-2 border-indigo-100 rounded-2xl p-4 text-center text-2xl font-bold text-gray-900 focus:border-indigo-400 outline-none resize-none shadow-inner"
-                                 rows={3}
-                               />
+                               <div>
+                                 <label className="block text-[10px] font-bold text-blue-400 mb-1 uppercase tracking-wider">英文 / 句子</label>
+                                 <textarea
+                                   value={editFrontValue}
+                                   onClick={(e) => e.stopPropagation()}
+                                   onChange={(e) => setEditFrontValue(e.target.value)}
+                                   className="w-full bg-blue-50 border-2 border-blue-100 rounded-2xl p-3 text-center text-lg font-bold text-gray-900 focus:border-blue-400 outline-none resize-none"
+                                   rows={2}
+                                 />
+                               </div>
+                               <div>
+                                 <label className="block text-[10px] font-bold text-indigo-400 mb-1 uppercase tracking-wider">中文翻译</label>
+                                 <textarea
+                                   autoFocus
+                                   value={editValue}
+                                   onClick={(e) => e.stopPropagation()}
+                                   onChange={(e) => setEditValue(e.target.value)}
+                                   className="w-full bg-gray-50 border-2 border-indigo-100 rounded-2xl p-3 text-center text-lg font-bold text-gray-900 focus:border-indigo-400 outline-none resize-none"
+                                   rows={3}
+                                 />
+                               </div>
                                <div className="flex justify-center gap-3">
                                  <button 
                                    onClick={(e) => { e.stopPropagation(); setIsEditing(false); }}
@@ -1167,9 +1235,9 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
                                  </button>
                                  <button 
                                    onClick={handleSaveEdit}
-                                   className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-bold"
+                                   className="px-4 py-1.5 bg-green-600 text-white rounded-lg text-sm font-bold flex items-center gap-1"
                                  >
-                                   保存
+                                   <Check size={14} /> 保存
                                  </button>
                                </div>
                              </div>

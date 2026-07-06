@@ -85,9 +85,14 @@ export const localAuth = {
     return () => listeners.delete(callback);
   },
 
-  async signInWithEmail(email: string, password: string): Promise<LocalUser> {
+  async signInWithEmail(identifier: string, password: string): Promise<LocalUser> {
     const users = getUsers();
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    const lowerId = identifier.trim().toLowerCase();
+    // Match by email OR displayName (username)
+    const user = users.find(u =>
+      u.email.toLowerCase() === lowerId ||
+      u.displayName.toLowerCase() === lowerId
+    );
     if (!user) {
       throw new Error('用户不存在，请先注册');
     }
@@ -100,6 +105,20 @@ export const localAuth = {
     localStorage.setItem(SESSION_KEY, JSON.stringify(publicUser));
     notifyListeners(publicUser);
     return publicUser;
+  },
+
+  // Forgot password: reset by verifying email + setting new password
+  async resetPassword(email: string, newPassword: string): Promise<void> {
+    const users = getUsers();
+    const user = users.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
+    if (!user) {
+      throw new Error('该邮箱未注册');
+    }
+    if (newPassword.length < 6) {
+      throw new Error('密码至少需要6个字符');
+    }
+    user.password = simpleHash(newPassword);
+    saveUsers(users);
   },
 
   async signUpWithEmail(email: string, password: string, displayName: string): Promise<LocalUser> {
