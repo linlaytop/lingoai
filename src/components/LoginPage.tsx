@@ -61,6 +61,9 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
     }
   };
 
+  const [showAdminPrompt, setShowAdminPrompt] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+
   const resetForgotState = () => {
     setShowForgot(false);
     setForgotEmail('');
@@ -69,12 +72,17 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
     setError('');
   };
 
-  // One-click admin login using the built-in admin credentials
-  const handleAdminLogin = async () => {
+  // Admin login: requires password entry (no longer one-click)
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError('');
+    if (!adminPassword.trim()) {
+      setError('请输入管理员密码');
+      return;
+    }
     setLoading(true);
     try {
-      await localAuth.signInWithEmail('admin@lingoai.com', 'admin123');
+      await localAuth.signInWithEmail('admin@lingoai.com', adminPassword);
       onSuccess();
     } catch (err: any) {
       setError(err.message || '管理员登录失败');
@@ -372,7 +380,7 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
                     )}
                   </button>
 
-                  {mode === 'login' && (
+                  {mode === 'login' && !showAdminPrompt && (
                     <div className="flex items-center justify-between">
                       <button
                         type="button"
@@ -383,14 +391,71 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
                       </button>
                       <button
                         type="button"
-                        onClick={handleAdminLogin}
-                        disabled={loading}
-                        className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-indigo-600 font-medium transition-colors disabled:opacity-50"
+                        onClick={() => { setShowAdminPrompt(true); setError(''); setAdminPassword(''); }}
+                        className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-indigo-600 font-medium transition-colors"
                       >
                         <ShieldCheck size={15} />
                         管理员登录
                       </button>
                     </div>
+                  )}
+
+                  {mode === 'login' && showAdminPrompt && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="space-y-3 pt-2 border-t border-gray-100"
+                    >
+                      <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
+                        <ShieldCheck size={18} className="text-indigo-600" />
+                        管理员登录
+                      </div>
+                      <div className="relative">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <input
+                          type="password"
+                          autoFocus
+                          value={adminPassword}
+                          onChange={(e) => setAdminPassword(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAdminLogin(e as any); } }}
+                          placeholder="请输入管理员密码"
+                          className="w-full bg-gray-50 border border-gray-200 rounded-2xl pl-12 pr-4 py-3.5 text-sm focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 outline-none transition-all"
+                        />
+                      </div>
+                      {error && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-600"
+                        >
+                          <AlertCircle size={16} />
+                          <span>{error}</span>
+                        </motion.div>
+                      )}
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => { setShowAdminPrompt(false); setAdminPassword(''); setError(''); }}
+                          className="px-4 py-2.5 rounded-xl text-sm font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors"
+                        >
+                          取消
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleAdminLogin(e as any)}
+                          disabled={loading || !adminPassword.trim()}
+                          className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-indigo-700 shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-60"
+                        >
+                          {loading ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <>
+                              <ShieldCheck size={16} /> 确认登录
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </motion.div>
                   )}
                 </form>
               </motion.div>
