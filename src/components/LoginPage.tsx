@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Languages, Mail, Lock, User, LogIn, UserPlus, AlertCircle, Eye, EyeOff, Sparkles, BookOpen, Gamepad2, Zap, KeyRound, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Languages, Mail, Lock, User, LogIn, UserPlus, AlertCircle, Eye, EyeOff, Sparkles, BookOpen, Gamepad2, Zap, KeyRound, ArrowLeft, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { localAuth } from '../lib/localAuth';
 import { cn } from '../lib/utils';
 
@@ -67,6 +67,20 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
     setForgotNewPassword('');
     setForgotSuccess(false);
     setError('');
+  };
+
+  // One-click admin login using the built-in admin credentials
+  const handleAdminLogin = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      await localAuth.signInWithEmail('admin@lingoai.com', 'admin123');
+      onSuccess();
+    } catch (err: any) {
+      setError(err.message || '管理员登录失败');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const features = [
@@ -359,13 +373,22 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
                   </button>
 
                   {mode === 'login' && (
-                    <div className="text-center">
+                    <div className="flex items-center justify-between">
                       <button
                         type="button"
                         onClick={() => { setShowForgot(true); setError(''); }}
                         className="text-sm text-blue-500 hover:text-blue-700 font-medium transition-colors"
                       >
                         忘记密码？
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAdminLogin}
+                        disabled={loading}
+                        className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-indigo-600 font-medium transition-colors disabled:opacity-50"
+                      >
+                        <ShieldCheck size={15} />
+                        管理员登录
                       </button>
                     </div>
                   )}
