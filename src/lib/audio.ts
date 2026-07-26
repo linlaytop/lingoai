@@ -22,7 +22,7 @@ export interface TtsConfig {
 const DEFAULT_TTS_CONFIG: TtsConfig = {
   enabled: true,
   workerUrl: 'https://doubao-tts.linlaytop.workers.dev/',
-  speaker: 'zh_female_shaoergushi_mars_bigtts',
+  speaker: 'zh_male_M392_conversation_wvae_bigtts',
 };
 
 export function getTtsConfig(): TtsConfig {

@@ -17,7 +17,7 @@ const DOUBAO_RESOURCE_ID = 'volc.service_type.10029';
 const DOUBAO_API_URL = 'https://openspeech.bytedance.com/api/v3/tts/unidirectional';
 
 // 默认音色（豆包语音合成1.0，支持中英文）
-const DEFAULT_SPEAKER = 'zh_female_shaoergushi_mars_bigtts';
+const DEFAULT_SPEAKER = 'zh_male_M392_conversation_wvae_bigtts';
 
 export default {
   async fetch(request) {
