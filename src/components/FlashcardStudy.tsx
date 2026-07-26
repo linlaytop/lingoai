@@ -584,6 +584,23 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
     }
   };
 
+  // Auto-translate the edited English text using the built-in dictionary
+  const handleAutoTranslate = async () => {
+    const text = editFrontValue.trim();
+    if (!text) return;
+    setIsUpdatingDetails(true);
+    try {
+      const result = await analyzeWord(text);
+      setEditValue(result.translation);
+    } catch {
+      // Fallback to synchronous dictionary
+      const result = localDictionary.analyze(text);
+      setEditValue(result.translation);
+    } finally {
+      setIsUpdatingDetails(false);
+    }
+  };
+
   const handleRecalibrate = (card: Flashcard, e: React.MouseEvent) => {
     e.stopPropagation();
     onUpdateCard(card.id, {
@@ -1171,6 +1188,16 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
                                 className="w-full bg-blue-50 border-2 border-blue-100 rounded-xl p-2.5 text-center text-sm font-bold text-gray-900 focus:border-blue-400 outline-none resize-none"
                                 rows={2}
                               />
+                            </div>
+                            <div className="flex justify-center">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleAutoTranslate(); }}
+                                disabled={isUpdatingDetails || !editFrontValue.trim()}
+                                className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors disabled:opacity-50"
+                              >
+                                {isUpdatingDetails ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                                自动翻译
+                              </button>
                             </div>
                             <div>
                               <label className="block text-[10px] font-bold text-indigo-500 mb-1 uppercase tracking-wider">中文翻译</label>
