@@ -33,6 +33,7 @@ export function GameChallenge({ cards, onAddCards, onClose }: GameChallengeProps
   const [timeLeft, setTimeLeft] = useState(15);
   const [options, setOptions] = useState<string[]>([]);
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
+  const [wrongItems, setWrongItems] = useState<{ front: string; back: string; userAnswer?: string }[]>([]);
   
   // Pattern Mode Specific State
   const [patternChallenge, setPatternChallenge] = useState<PatternChallenge | null>(null);
@@ -79,6 +80,7 @@ export function GameChallenge({ cards, onAddCards, onClose }: GameChallengeProps
     setScore(0);
     setCombo(0);
     setLastRating(null);
+    setWrongItems([]);
     nextRound(0);
   };
 
@@ -156,6 +158,11 @@ export function GameChallenge({ cards, onAddCards, onClose }: GameChallengeProps
       } else {
          setFeedback('wrong');
          setIsWrongRetry(true);
+         setWrongItems(prev => {
+           const exists = prev.some(item => item.front === currentCard.front);
+           if (exists) return prev;
+           return [...prev, { front: currentCard.front, back: currentCard.back, userAnswer: userInput.trim() || '（未作答）' }];
+         });
          setTimeout(() => setFeedback(null), 1000);
       }
       return;
@@ -252,6 +259,24 @@ export function GameChallenge({ cards, onAddCards, onClose }: GameChallengeProps
       console.error("Evaluation failed:", error);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSkip = () => {
+    if (feedback || !currentCard) return;
+    setWrongItems(prev => {
+      const exists = prev.some(item => item.front === currentCard.front);
+      if (exists) return prev;
+      return [...prev, { front: currentCard.front, back: currentCard.back, userAnswer: '（跳过）' }];
+    });
+    if (currentIndex < cards.length - 1) {
+      setCurrentIndex(prev => prev + 1);
+      setLevel(prev => prev + 1);
+      setUserInput('');
+      setFeedback(null);
+      setIsWrongRetry(false);
+    } else {
+      setGameState('finished');
     }
   };
 
@@ -579,6 +604,13 @@ export function GameChallenge({ cards, onAddCards, onClose }: GameChallengeProps
                            >
                               提交关卡
                            </button>
+                           <button
+                              onClick={handleSkip}
+                              disabled={!!feedback}
+                              className="px-8 py-4 bg-white border-2 border-orange-200 text-orange-500 rounded-2xl font-black hover:bg-orange-50 hover:border-orange-300 transition-all disabled:opacity-50 flex items-center gap-2"
+                           >
+                              跳过
+                           </button>
                         </div>
                      </div>
 
@@ -896,6 +928,35 @@ export function GameChallenge({ cards, onAddCards, onClose }: GameChallengeProps
                 </>
               );
             })()}
+
+            {wrongItems.length > 0 && (
+              <div className="w-full max-w-md text-left space-y-3">
+                <div className="flex items-center gap-2 text-red-500">
+                  <XCircle size={20} />
+                  <h3 className="font-black text-lg">错误项目 ({wrongItems.length})</h3>
+                </div>
+                <div className="bg-red-50 rounded-2xl border border-red-100 p-4 space-y-3 max-h-64 overflow-y-auto">
+                  {wrongItems.map((item, idx) => (
+                    <div key={idx} className="bg-white rounded-xl p-3 border border-red-100 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">题目</p>
+                          <p className="font-bold text-gray-800">{item.back}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">正确答案</p>
+                          <p className="font-bold text-green-600">{item.front}</p>
+                        </div>
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-dashed border-red-100">
+                        <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">你的答案</p>
+                        <p className="font-bold text-red-500">{item.userAnswer}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-4 w-full max-w-sm">
               <button 
