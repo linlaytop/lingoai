@@ -1130,11 +1130,74 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
                            </button>
                         </div>
 
-                        <div className="absolute top-10 right-10">
+                        <div className="absolute top-8 right-8 flex items-center gap-2">
+                           {!isEditing ? (
+                             <button
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 setEditFrontValue(currentCard?.front || '');
+                                 setEditValue(currentCard?.details?.translation || '');
+                                 setIsEditing(true);
+                               }}
+                               className="p-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white/40 hover:text-white rounded-xl transition-all active:scale-90 backdrop-blur-sm flex items-center justify-center"
+                               title="编辑英文/句子"
+                             >
+                               <Edit2 size={18} />
+                             </button>
+                           ) : (
+                             <button
+                               onClick={(e) => { e.stopPropagation(); handleSaveEdit(e); }}
+                               className="p-3 bg-green-500 hover:bg-green-600 border border-green-400 text-white rounded-xl transition-all active:scale-90 shadow-lg shadow-green-200/20 flex items-center justify-center"
+                               title="保存修改"
+                             >
+                               <Check size={18} />
+                             </button>
+                           )}
                            <div className="px-6 py-2 bg-white/5 border border-white/10 rounded-full text-xs font-black text-white/30 tracking-[0.2em] uppercase">
                               EN
                            </div>
                         </div>
+
+                        {isEditing && (
+                          <div className="absolute top-24 right-8 left-8 z-20 bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl border border-white/40 space-y-3"
+                               onClick={(e) => e.stopPropagation()}>
+                            <div>
+                              <label className="block text-[10px] font-bold text-blue-500 mb-1 uppercase tracking-wider">英文 / 句子</label>
+                              <textarea
+                                autoFocus
+                                value={editFrontValue}
+                                onChange={(e) => setEditFrontValue(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full bg-blue-50 border-2 border-blue-100 rounded-xl p-2.5 text-center text-sm font-bold text-gray-900 focus:border-blue-400 outline-none resize-none"
+                                rows={2}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-bold text-indigo-500 mb-1 uppercase tracking-wider">中文翻译</label>
+                              <textarea
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full bg-gray-50 border-2 border-indigo-100 rounded-xl p-2.5 text-center text-sm font-bold text-gray-900 focus:border-indigo-400 outline-none resize-none"
+                                rows={2}
+                              />
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setIsEditing(false); }}
+                                className="px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg text-xs font-bold hover:bg-gray-200 transition-colors"
+                              >
+                                取消
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleSaveEdit(e); }}
+                                className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-green-700 transition-colors"
+                              >
+                                <Check size={12} /> 保存
+                              </button>
+                            </div>
+                          </div>
+                        )}
                         
                         <div className="text-center py-4 flex-1 flex flex-col items-center justify-center w-full px-4 overflow-hidden">
                            <h2 className={cn("font-bold text-white tracking-tight leading-tight break-words max-w-full", getScaledFontSize(currentCard?.front || '', true))}>
