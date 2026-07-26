@@ -1,22 +1,26 @@
 /**
  * Cloudflare Worker - 豆包 TTS 代理
  *
- * 部署步骤：
- * 1. 登录 https://dash.cloudflare.com → Workers & Pages → Create
- * 2. 粘贴此代码
- * 3. Settings → Variables → 添加 DOUBAO_API_KEY = 你的火山引擎 API Key
- * 4. 部署后复制 Worker URL（如 https://xxx.your-subdomain.workers.dev）
- * 5. 在 LingoAI 网站设置里填入此 URL
+ * 部署步骤（超简单）：
+ * 1. 注册 https://dash.cloudflare.com（免费）
+ * 2. Workers & Pages → Create Worker → 起个名字（如 lingoai-tts）
+ * 3. 把这个文件的全部代码粘贴进去（覆盖默认代码）
+ * 4. 点 Deploy → 复制 URL（如 https://lingoai-tts.xxx.workers.dev）
+ * 5. 在 LingoAI 网站 → 发音设置 → 填入此 URL → 保存
  */
+
+// ===== 凭证配置（已内置，无需额外设置环境变量）=====
+const DOUBAO_APP_ID = '3588670840';
+const DOUBAO_ACCESS_KEY = 'W--g_u9HPwZQzNZgq5nt1tx30yjXYWGM';
+const DOUBAO_RESOURCE_ID = 'volc.service_type.10029';
 
 const DOUBAO_API_URL = 'https://openspeech.bytedance.com/api/v3/tts/unidirectional';
 
 // 默认音色（豆包语音合成1.0，支持中英文）
-// 更多音色见：https://www.volcengine.com/docs/6561/1257544
 const DEFAULT_SPEAKER = 'zh_female_shaoergushi_mars_bigtts';
 
 export default {
-  async fetch(request, env) {
+  async fetch(request) {
     // CORS 预检
     if (request.method === 'OPTIONS') {
       return new Response(null, {
@@ -31,14 +35,6 @@ export default {
     if (request.method !== 'POST') {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {
         status: 405,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      });
-    }
-
-    const apiKey = env.DOUBAO_API_KEY;
-    if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'Worker 未配置 DOUBAO_API_KEY' }), {
-        status: 500,
         headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
       });
     }
@@ -61,16 +57,21 @@ export default {
       });
     }
 
-    // 语速转换：前端 -50~100 → 豆包 -50~100
+    // 语速：前端 -50~100 → 豆包 -50~100
     const speechRate = typeof speed === 'number' ? Math.max(-50, Math.min(100, speed)) : 0;
+
+    // 生成随机 Request-Id
+    const requestId = crypto.randomUUID();
 
     try {
       const resp = await fetch(DOUBAO_API_URL, {
         method: 'POST',
         headers: {
-          'X-Api-Key': apiKey,
-          'X-Api-Resource-Id': 'seed-tts-1.0',
           'Content-Type': 'application/json',
+          'X-Api-App-Key': DOUBAO_APP_ID,
+          'X-Api-Access-Key': DOUBAO_ACCESS_KEY,
+          'X-Api-Request-Id': requestId,
+          'X-Api-Resource-Id': DOUBAO_RESOURCE_ID,
         },
         body: JSON.stringify({
           user: { uid: 'lingoai' },
@@ -95,7 +96,7 @@ export default {
         });
       }
 
-      // 读取完整流式响应（HTTP Chunked，每行一个 JSON 事件）
+      // 读取完整响应（流式 JSON，每行一个 JSON 对象）
       const rawText = await resp.text();
       const lines = rawText.split('\n').filter((l) => l.trim());
 
@@ -110,7 +111,11 @@ export default {
         if (!jsonStr.startsWith('{')) continue;
         try {
           const evt = JSON.parse(jsonStr);
-          // TTSAudio 事件携带 base64 音频
+          // 响应格式：{"code":0,"data":"base64音频片段"}
+          if (evt.code === 0 && evt.data && typeof evt.data === 'string') {
+            audioBase64 += evt.data;
+          }
+          // 兼容事件格式：{"event":"TTSAudio","data":{"audio":"base64"}}
           if (evt.event === 'TTSAudio' && evt.data && evt.data.audio) {
             audioBase64 += evt.data.audio;
           }
