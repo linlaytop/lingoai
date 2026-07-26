@@ -12,6 +12,7 @@ import { DialoguePractice } from './components/DialoguePractice';
 import { CourseSystem } from './components/CourseSystem';
 import { LoginPage } from './components/LoginPage';
 import { AdminPage } from './components/AdminPage';
+import { TtsSettings } from './components/TtsSettings';
 import { localAuth, type LocalUser } from './lib/localAuth';
 import { localDb } from './lib/localDb';
 import { seedUserData } from './lib/seedData';
@@ -21,6 +22,7 @@ export default function App() {
   const [user, setUser] = useState<LocalUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showTtsSettings, setShowTtsSettings] = useState(false);
   const [query_str, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [currentWord, setCurrentWord] = useState<WordAnalysis | null>(() => {
@@ -541,6 +543,14 @@ export default function App() {
                   <span className="hidden lg:inline">管理后台</span>
                 </button>
               )}
+              <button
+                onClick={() => setShowTtsSettings(true)}
+                className="bg-indigo-50 text-indigo-600 px-3 py-1.5 sm:p-2 rounded-xl hover:bg-indigo-100 transition-all flex items-center gap-2 font-bold text-xs shadow-sm border border-indigo-100"
+                title="发音设置"
+              >
+                <Volume2 size={18} />
+                <span className="hidden lg:inline">发音设置</span>
+              </button>
               <div className="hidden sm:flex flex-col items-end">
                 <div className="flex items-center gap-2 px-3 py-1 bg-green-50 rounded-lg border border-green-100">
                   <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
@@ -1097,6 +1107,9 @@ export default function App() {
           </div>
         </div>
       </main>
+
+      {/* TTS 发音设置弹窗 */}
+      <TtsSettings open={showTtsSettings} onClose={() => setShowTtsSettings(false)} />
     </div>
   );
 }

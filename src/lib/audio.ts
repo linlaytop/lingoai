@@ -10,13 +10,110 @@ interface SpeakOptions {
   onEnd?: () => void;
 }
 
+// ===== 豆包 TTS 配置 =====
+const TTS_CONFIG_KEY = 'lingoai_tts_config';
+
+export interface TtsConfig {
+  enabled: boolean;
+  workerUrl: string;
+  speaker: string;
+}
+
+const DEFAULT_TTS_CONFIG: TtsConfig = {
+  enabled: false,
+  workerUrl: '',
+  speaker: 'zh_female_shaoergushi_mars_bigtts',
+};
+
+export function getTtsConfig(): TtsConfig {
+  try {
+    const raw = localStorage.getItem(TTS_CONFIG_KEY);
+    if (raw) return { ...DEFAULT_TTS_CONFIG, ...JSON.parse(raw) };
+  } catch {}
+  return DEFAULT_TTS_CONFIG;
+}
+
+export function setTtsConfig(config: Partial<TtsConfig>) {
+  const current = getTtsConfig();
+  const next = { ...current, ...config };
+  localStorage.setItem(TTS_CONFIG_KEY, JSON.stringify(next));
+  return next;
+}
+
+// 豆包 TTS 音频缓存（避免重复请求同一个词）
+const ttsCache = new Map<string, string>();
+
+/**
+ * 豆包 TTS 语音合成（通过 Cloudflare Worker 代理）
+ * 返回音频 blob URL，失败时返回 null
+ */
+async function speakDoubao(text: string, options: SpeakOptions = {}): Promise<boolean> {
+  const config = getTtsConfig();
+  if (!config.enabled || !config.workerUrl) return false;
+
+  const { speed = 'normal' } = options;
+  const speechRate = speed === 'slow' ? -20 : speed === 'fast' ? 30 : 0;
+
+  // 缓存命中
+  const cacheKey = `${text}|${config.speaker}|${speechRate}`;
+  if (ttsCache.has(cacheKey)) {
+    return playAudioUrl(ttsCache.get(cacheKey)!, options);
+  }
+
+  try {
+    if (options.onStart) options.onStart();
+
+    const resp = await fetch(config.workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text,
+        speaker: config.speaker,
+        speed: speechRate,
+      }),
+    });
+
+    if (!resp.ok) {
+      console.warn('[豆包TTS] 请求失败:', resp.status);
+      return false;
+    }
+
+    const blob = await resp.blob();
+    if (blob.size === 0) return false;
+
+    const url = URL.createObjectURL(blob);
+    ttsCache.set(cacheKey, url);
+    return playAudioUrl(url, options);
+  } catch (err) {
+    console.warn('[豆包TTS] 调用异常，回退到浏览器TTS:', err);
+    return false;
+  }
+}
+
+/** 播放音频 URL */
+function playAudioUrl(url: string, options: SpeakOptions = {}): boolean {
+  const audio = new Audio(url);
+  audio.playbackRate = 1;
+  if (options.onStart) audio.onplay = options.onStart;
+  if (options.onEnd) audio.onended = options.onEnd;
+  audio.play().catch(() => {});
+  return true;
+}
+
 /**
  * Native Browser TTS with voice selection
  */
 export async function speakNative(text: string, options: SpeakOptions & { lang?: string } = {}) {
+  // 优先使用豆包 TTS（仅英文场景）
+  const { lang = 'en-US' } = options;
+  if (lang.startsWith('en')) {
+    const ok = await speakDoubao(text, options);
+    if (ok) return;
+  }
+
   if (!('speechSynthesis' in window)) return;
 
-  const { speed = 'normal', rate, gender, onStart, onEnd, lang = 'en-US' } = options;
+  const { speed = 'normal', rate, gender, onStart, onEnd } = options;
 
   window.speechSynthesis.cancel();
 
