@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Volume2, VolumeX, ChevronLeft, ChevronRight, ChevronDown, RotateCcw, Book, ClipboardList, PlusCircle, Loader2, Send, Trash2, Sparkles, Edit2, Check, X, Settings2, Pause, Play, FileUp, FileType, Repeat, PlayCircle, RefreshCw, GraduationCap, Tag, Calendar, ListFilter, Save } from 'lucide-react';
 import { Flashcard, WordAnalysis } from '../types';
@@ -30,6 +30,91 @@ const formatTimeAgo = (timestamp: number) => {
   const months = Math.floor(days / 30);
   return `${months}个月前`;
 };
+
+interface InlineEditPanelProps {
+  initialFront: string;
+  initialTranslation: string;
+  onSave: (front: string, translation: string) => void;
+  onCancel: () => void;
+  onAutoTranslate: (front: string) => Promise<string>;
+  isUpdating?: boolean;
+}
+
+const InlineEditPanel = memo(function InlineEditPanel({
+  initialFront,
+  initialTranslation,
+  onSave,
+  onCancel,
+  onAutoTranslate,
+  isUpdating,
+}: InlineEditPanelProps) {
+  const [front, setFront] = useState(initialFront);
+  const [translation, setTranslation] = useState(initialTranslation);
+  const [isTranslating, setIsTranslating] = useState(false);
+
+  const handleAutoTranslate = async () => {
+    const text = front.trim();
+    if (!text || isTranslating) return;
+    setIsTranslating(true);
+    try {
+      const result = await onAutoTranslate(text);
+      setTranslation(result);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  return (
+    <div className="absolute top-24 right-8 left-8 z-20 bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl border border-white/40 space-y-3"
+         onClick={(e) => e.stopPropagation()}>
+      <div>
+        <label className="block text-[10px] font-bold text-blue-500 mb-1 uppercase tracking-wider">英文 / 句子</label>
+        <textarea
+          autoFocus
+          value={front}
+          onChange={(e) => setFront(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full bg-blue-50 border-2 border-blue-100 rounded-xl p-2.5 text-center text-sm font-bold text-gray-900 focus:border-blue-400 outline-none resize-none"
+          rows={2}
+        />
+      </div>
+      <div className="flex justify-center">
+        <button
+          onClick={(e) => { e.stopPropagation(); handleAutoTranslate(); }}
+          disabled={isTranslating || isUpdating || !front.trim()}
+          className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors disabled:opacity-50"
+        >
+          {isTranslating || isUpdating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+          自动翻译
+        </button>
+      </div>
+      <div>
+        <label className="block text-[10px] font-bold text-indigo-500 mb-1 uppercase tracking-wider">中文翻译</label>
+        <textarea
+          value={translation}
+          onChange={(e) => setTranslation(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full bg-gray-50 border-2 border-indigo-100 rounded-xl p-2.5 text-center text-sm font-bold text-gray-900 focus:border-indigo-400 outline-none resize-none"
+          rows={2}
+        />
+      </div>
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={(e) => { e.stopPropagation(); onCancel(); }}
+          className="px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg text-xs font-bold hover:bg-gray-200 transition-colors"
+        >
+          取消
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onSave(front.trim(), translation.trim()); }}
+          className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-green-700 transition-colors"
+        >
+          <Check size={12} /> 保存
+        </button>
+      </div>
+    </div>
+  );
+});
 
 export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDeleteCard, onUpdateCard, onStartQuiz, onClose }: FlashcardStudyProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -600,6 +685,16 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
       setIsUpdatingDetails(false);
     }
   };
+
+  const getAutoTranslation = useCallback(async (text: string): Promise<string> => {
+    try {
+      const result = await analyzeWord(text);
+      return result.translation || '';
+    } catch {
+      const result = localDictionary.analyze(text);
+      return result.translation || '';
+    }
+  }, []);
 
   const handleRecalibrate = (card: Flashcard, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1175,55 +1270,27 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
                            </div>
                         </div>
 
-                        {isEditing && (
-                          <div className="absolute top-24 right-8 left-8 z-20 bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl border border-white/40 space-y-3"
-                               onClick={(e) => e.stopPropagation()}>
-                            <div>
-                              <label className="block text-[10px] font-bold text-blue-500 mb-1 uppercase tracking-wider">英文 / 句子</label>
-                              <textarea
-                                autoFocus
-                                value={editFrontValue}
-                                onChange={(e) => setEditFrontValue(e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                                className="w-full bg-blue-50 border-2 border-blue-100 rounded-xl p-2.5 text-center text-sm font-bold text-gray-900 focus:border-blue-400 outline-none resize-none"
-                                rows={2}
-                              />
-                            </div>
-                            <div className="flex justify-center">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleAutoTranslate(); }}
-                                disabled={isUpdatingDetails || !editFrontValue.trim()}
-                                className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-50 text-indigo-600 border border-indigo-100 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors disabled:opacity-50"
-                              >
-                                {isUpdatingDetails ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                                自动翻译
-                              </button>
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-bold text-indigo-500 mb-1 uppercase tracking-wider">中文翻译</label>
-                              <textarea
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                                className="w-full bg-gray-50 border-2 border-indigo-100 rounded-xl p-2.5 text-center text-sm font-bold text-gray-900 focus:border-indigo-400 outline-none resize-none"
-                                rows={2}
-                              />
-                            </div>
-                            <div className="flex justify-end gap-2">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setIsEditing(false); }}
-                                className="px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg text-xs font-bold hover:bg-gray-200 transition-colors"
-                              >
-                                取消
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleSaveEdit(e); }}
-                                className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-green-700 transition-colors"
-                              >
-                                <Check size={12} /> 保存
-                              </button>
-                            </div>
-                          </div>
+                        {isEditing && currentCard && (
+                          <InlineEditPanel
+                            initialFront={currentCard.front}
+                            initialTranslation={currentCard.details?.translation || ''}
+                            onSave={(front, translation) => {
+                              setEditFrontValue(front);
+                              setEditValue(translation);
+                              onUpdateCard(currentCard.id, {
+                                front: front || currentCard.front,
+                                back: translation || currentCard.back,
+                                details: {
+                                  ...currentCard.details,
+                                  translation,
+                                }
+                              });
+                              setIsEditing(false);
+                            }}
+                            onCancel={() => setIsEditing(false)}
+                            onAutoTranslate={getAutoTranslation}
+                            isUpdating={isUpdatingDetails}
+                          />
                         )}
                         
                         <div className="text-center py-4 flex-1 flex flex-col items-center justify-center w-full px-4 overflow-hidden">
