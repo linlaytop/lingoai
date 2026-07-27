@@ -26,8 +26,12 @@ export default function App() {
   const [query_str, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [currentWord, setCurrentWord] = useState<WordAnalysis | null>(() => {
-    const saved = localStorage.getItem('lingua_current_word');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('lingua_current_word');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
 
   useEffect(() => {

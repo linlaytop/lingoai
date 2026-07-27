@@ -47,7 +47,13 @@ function getUsers(): StoredUser[] {
     localStorage.setItem(USERS_KEY, JSON.stringify([adminUser]));
     return [adminUser];
   }
-  return JSON.parse(data);
+  try {
+    const parsed = JSON.parse(data);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {}
+  // 数据损坏，重置为默认管理员
+  localStorage.setItem(USERS_KEY, JSON.stringify([adminUser]));
+  return [adminUser];
 }
 
 function saveUsers(users: StoredUser[]) {

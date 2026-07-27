@@ -12,7 +12,11 @@ function getUserKey(uid: string, collection: string): string {
 function readCollection<T>(uid: string, collection: string): T[] {
   const key = getUserKey(uid, collection);
   const data = localStorage.getItem(key);
-  return data ? JSON.parse(data) : [];
+  try {
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
 }
 
 function writeCollection<T>(uid: string, collection: string, data: T[]): void {
