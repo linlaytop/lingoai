@@ -5,9 +5,126 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LingoAI - AI 英语学习平台</title>
     <meta name="description" content="LingoAI - 智能英语学习平台，包含闪卡、闯关、连读练习等功能" />
+    <!-- 防止浏览器缓存旧版本 HTML -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <style>
+      /* 加载占位样式 - JS 执行前用户看到这个 */
+      #app-loading {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+        color: white;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        z-index: 9999;
+      }
+      #app-loading .spinner {
+        width: 48px;
+        height: 48px;
+        border: 4px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-bottom: 20px;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      #app-loading h2 { font-size: 20px; margin: 0 0 8px; font-weight: 700; }
+      #app-loading p { font-size: 14px; opacity: 0.9; margin: 0; }
+
+      /* 错误提示样式 - JS 加载失败时显示 */
+      #app-error {
+        display: none;
+        position: fixed;
+        inset: 0;
+        padding: 40px 20px;
+        background: #fef2f2;
+        color: #991b1b;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        z-index: 10000;
+        overflow: auto;
+      }
+      #app-error.show { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+      #app-error h2 { font-size: 22px; margin: 0 0 12px; }
+      #app-error p { font-size: 14px; margin: 4px 0; text-align: center; }
+      #app-error .retry-btn {
+        margin-top: 20px;
+        padding: 10px 28px;
+        background: #dc2626;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      #app-error .retry-btn:hover { background: #b91c1c; }
+      #app-error pre {
+        margin-top: 16px;
+        padding: 12px;
+        background: #fee2e2;
+        border-radius: 6px;
+        font-size: 12px;
+        max-width: 600px;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- JS 加载前显示的加载界面 -->
+      <div id="app-loading">
+        <div class="spinner"></div>
+        <h2>LingoAI 正在加载...</h2>
+        <p>AI 英语学习平台</p>
+      </div>
+    </div>
+
+    <!-- 错误提示界面（JS 失败时显示） -->
+    <div id="app-error">
+      <h2>⚠️ 页面加载失败</h2>
+      <p>可能是浏览器缓存了旧版本，或网络不稳定。</p>
+      <p>请尝试：<strong>Ctrl + Shift + R</strong> 强制刷新</p>
+      <button class="retry-btn" onclick="location.href = location.pathname + '?t=' + Date.now()">重新加载</button>
+      <pre id="error-detail"></pre>
+    </div>
+
+    <script>
+      // 捕获所有未处理的 JS 错误，显示给用户而不是白屏
+      window.addEventListener('error', function(e) {
+        var detail = document.getElementById('error-detail');
+        var msg = e.message || '未知错误';
+        if (e.filename) msg += '\n文件: ' + e.filename;
+        if (e.lineno) msg += '\n行号: ' + e.lineno;
+        detail.textContent = msg;
+        document.getElementById('app-error').classList.add('show');
+        document.getElementById('app-loading').style.display = 'none';
+      });
+      window.addEventListener('unhandledrejection', function(e) {
+        var detail = document.getElementById('error-detail');
+        detail.textContent = 'Promise 错误: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason));
+        document.getElementById('app-error').classList.add('show');
+        document.getElementById('app-loading').style.display = 'none';
+      });
+
+      // 5 秒后如果 React 还没渲染（加载界面还在），自动显示提示
+      setTimeout(function() {
+        var loading = document.getElementById('app-loading');
+        if (loading && loading.parentElement && loading.parentElement.children.length === 1) {
+          // React 没有替换 #root 内容，说明 JS 没执行成功
+          var detail = document.getElementById('error-detail');
+          detail.textContent = '页面加载超时（5秒无响应）。\n\n可能原因：\n1. 浏览器缓存了旧版本 JS 文件（已被删除）\n2. 360 安全软件拦截了 JS 执行\n3. 网络不稳定\n\n解决方法：按 Ctrl+Shift+R 强制刷新，或用无痕模式打开。';
+          document.getElementById('app-error').classList.add('show');
+          loading.style.display = 'none';
+        }
+      }, 5000);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
