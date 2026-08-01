@@ -136,6 +136,12 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
   const [filterTag, setFilterTag] = useState<string | null>(null);
   const [tagInput, setTagInput] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [newWord, setNewWord] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isUpdatingDetails, setIsUpdatingDetails] = useState(false);
 
   const toggleGroup = (groupId: string) => {
     setCollapsedGroups(prev => ({
@@ -388,13 +394,6 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
       }
     }
   }, [currentIndex, activeGroupIndex, activeSubTab]);
-
-  const [newWord, setNewWord] = useState('');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [isUpdatingDetails, setIsUpdatingDetails] = useState(false);
 
   if (isLoading) {
     return (
