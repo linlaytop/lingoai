@@ -395,6 +395,17 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
     }
   }, [currentIndex, activeGroupIndex, activeSubTab]);
 
+  // 自动翻译回调（必须在所有 early return 之前调用，否则 Hook 数量不一致触发 React #310）
+  const getAutoTranslation = useCallback(async (text: string): Promise<string> => {
+    try {
+      const result = await analyzeWord(text);
+      return result.translation || '';
+    } catch {
+      const result = localDictionary.analyze(text);
+      return result.translation || '';
+    }
+  }, []);
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-[600px] space-y-6 text-center">
@@ -684,16 +695,6 @@ export function FlashcardStudy({ cards, isLoading, onAddCard, onAddCards, onDele
       setIsUpdatingDetails(false);
     }
   };
-
-  const getAutoTranslation = useCallback(async (text: string): Promise<string> => {
-    try {
-      const result = await analyzeWord(text);
-      return result.translation || '';
-    } catch {
-      const result = localDictionary.analyze(text);
-      return result.translation || '';
-    }
-  }, []);
 
   const handleRecalibrate = (card: Flashcard, e: React.MouseEvent) => {
     e.stopPropagation();
