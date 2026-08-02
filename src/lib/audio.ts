@@ -43,6 +43,23 @@ export function setTtsConfig(config: Partial<TtsConfig>) {
 // 豆包 TTS 音频缓存（避免重复请求同一个词）
 const ttsCache = new Map<string, string>();
 
+// 最近一次 TTS 错误详情（供发音设置页诊断显示）
+export interface TtsErrorDetail {
+  stage: 'request' | 'http' | 'empty' | 'play' | 'unknown';
+  message: string;
+  status?: number;
+}
+declare global {
+  interface Window {
+    __lastTtsError?: TtsErrorDetail;
+  }
+}
+
+function setTtsError(detail: TtsErrorDetail) {
+  try { window.__lastTtsError = detail; } catch {}
+  console.warn('[豆包TTS] 失败:', detail.stage, detail.message, detail.status || '');
+}
+
 /**
  * 豆包 TTS 语音合成（通过 Cloudflare Worker 代理）
  * 返回音频 blob URL，失败时返回 null
@@ -63,29 +80,43 @@ async function speakDoubao(text: string, options: SpeakOptions = {}): Promise<bo
   try {
     if (options.onStart) options.onStart();
 
-    const resp = await fetch(config.workerUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text,
-        speaker: config.speaker,
-        speed: speechRate,
-      }),
-    });
+    let resp: Response;
+    try {
+      resp = await fetch(config.workerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          speaker: config.speaker,
+          speed: speechRate,
+        }),
+      });
+    } catch (fetchErr) {
+      setTtsError({
+        stage: 'request',
+        message: `网络请求失败: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}。请检查代理残留、网络或 Worker 地址`,
+      });
+      return false;
+    }
 
     if (!resp.ok) {
-      console.warn('[豆包TTS] 请求失败:', resp.status);
+      let detail = '';
+      try { detail = (await resp.text()).slice(0, 200); } catch {}
+      setTtsError({ stage: 'http', message: `Worker 返回 HTTP ${resp.status}: ${detail}`, status: resp.status });
       return false;
     }
 
     const blob = await resp.blob();
-    if (blob.size === 0) return false;
+    if (blob.size === 0) {
+      setTtsError({ stage: 'empty', message: 'Worker 返回空音频' });
+      return false;
+    }
 
     const url = URL.createObjectURL(blob);
     ttsCache.set(cacheKey, url);
     return playAudioUrl(url, options);
   } catch (err) {
-    console.warn('[豆包TTS] 调用异常，回退到浏览器TTS:', err);
+    setTtsError({ stage: 'unknown', message: `未知异常: ${err instanceof Error ? err.message : String(err)}` });
     return false;
   }
 }
@@ -102,50 +133,57 @@ function playAudioUrl(url: string, options: SpeakOptions = {}): boolean {
 
 /**
  * Native Browser TTS with voice selection
+ * 返回 true 表示已发出声音（豆包 或 浏览器TTS），false 表示全部失败
  */
-export async function speakNative(text: string, options: SpeakOptions & { lang?: string } = {}) {
+export async function speakNative(text: string, options: SpeakOptions & { lang?: string } = {}): Promise<boolean> {
   // 优先使用豆包 TTS（仅英文场景）
   const { lang = 'en-US' } = options;
   if (lang.startsWith('en')) {
     const ok = await speakDoubao(text, options);
-    if (ok) return;
+    if (ok) return true;
   }
 
-  if (!('speechSynthesis' in window)) return;
+  if (!('speechSynthesis' in window)) return false;
 
   const { speed = 'normal', rate, gender, onStart, onEnd } = options;
 
-  window.speechSynthesis.cancel();
+  try {
+    window.speechSynthesis.cancel();
 
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = lang;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang;
 
-  if (rate) {
-    utterance.rate = rate;
-  } else {
-    utterance.rate = speed === 'slow' ? 0.6 : speed === 'fast' ? 1.1 : 0.85;
+    if (rate) {
+      utterance.rate = rate;
+    } else {
+      utterance.rate = speed === 'slow' ? 0.6 : speed === 'fast' ? 1.1 : 0.85;
+    }
+
+    const voices = window.speechSynthesis.getVoices();
+
+    let selectedVoice = voices.find(v =>
+      v.lang.startsWith(lang.split('-')[0]) &&
+      (v.name.includes('Google') || v.name.includes('Neural')) &&
+      (gender ? (gender === 'male' ? (v.name.includes('Male') || v.name.includes('David')) : (v.name.includes('Female') || v.name.includes('Samantha'))) : true)
+    );
+
+    if (!selectedVoice) {
+      selectedVoice = voices.find(v => v.lang.startsWith(lang.split('-')[0]));
+    }
+
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
+
+    if (onStart) utterance.onstart = onStart;
+    if (onEnd) utterance.onend = onEnd;
+
+    window.speechSynthesis.speak(utterance);
+    return true;
+  } catch (err) {
+    setTtsError({ stage: 'play', message: `浏览器 TTS 播放失败: ${err instanceof Error ? err.message : String(err)}` });
+    return false;
   }
-
-  const voices = window.speechSynthesis.getVoices();
-
-  let selectedVoice = voices.find(v =>
-    v.lang.startsWith(lang.split('-')[0]) &&
-    (v.name.includes('Google') || v.name.includes('Neural')) &&
-    (gender ? (gender === 'male' ? (v.name.includes('Male') || v.name.includes('David')) : (v.name.includes('Female') || v.name.includes('Samantha'))) : true)
-  );
-
-  if (!selectedVoice) {
-    selectedVoice = voices.find(v => v.lang.startsWith(lang.split('-')[0]));
-  }
-
-  if (selectedVoice) {
-    utterance.voice = selectedVoice;
-  }
-
-  if (onStart) utterance.onstart = onStart;
-  if (onEnd) utterance.onend = onEnd;
-
-  window.speechSynthesis.speak(utterance);
 }
 
 /**

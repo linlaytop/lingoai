@@ -16,6 +16,7 @@ export function TtsSettings({ open, onClose }: TtsSettingsProps) {
   const [speaker, setSpeaker] = useState(config.speaker);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<'idle' | 'success' | 'fail'>('idle');
+  const [testError, setTestError] = useState<string>('');
   const [saved, setSaved] = useState(false);
 
   const handleSave = () => {
@@ -28,15 +29,22 @@ export function TtsSettings({ open, onClose }: TtsSettingsProps) {
     if (!workerUrl.trim()) return;
     setTesting(true);
     setTestResult('idle');
+    setTestError('');
     try {
       // 先保存配置再测试
       setTtsConfig({ enabled: true, workerUrl: workerUrl.trim(), speaker: speaker.trim() });
       // 延迟一点让配置生效
       await new Promise(r => setTimeout(r, 100));
       const ok = await speakNative('Hello, this is a test.');
-      setTestResult(ok ? 'success' : 'fail');
-    } catch {
+      if (ok) {
+        setTestResult('success');
+      } else {
+        setTestResult('fail');
+        setTestError(window.__lastTtsError ? `${window.__lastTtsError.message}` : '未知错误，请检查控制台');
+      }
+    } catch (err) {
       setTestResult('fail');
+      setTestError(err instanceof Error ? err.message : String(err));
     } finally {
       setTesting(false);
     }
@@ -185,9 +193,16 @@ export function TtsSettings({ open, onClose }: TtsSettingsProps) {
                   </span>
                 )}
                 {testResult === 'fail' && (
-                  <span className="text-sm text-red-500 font-bold">
-                    测试失败，请检查配置
-                  </span>
+                  <div className="w-full">
+                    <span className="text-sm text-red-500 font-bold">
+                      测试失败，请检查配置
+                    </span>
+                    {testError && (
+                      <p className="mt-1 text-xs text-red-400 break-all leading-relaxed bg-red-50 rounded-lg p-2">
+                        {testError}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 
