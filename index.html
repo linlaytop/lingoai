@@ -96,34 +96,46 @@
     </div>
 
     <script>
-      // 捕获所有未处理的 JS 错误，显示给用户而不是白屏
-      window.addEventListener('error', function(e) {
+      // 只有 React 还没接管时才显示错误覆盖层（避免 React 慢启动时被错误界面遮挡）
+      function showAppError(msg) {
+        if (window.__lingoaiReady) {
+          console.warn('[LingoAI] React 已就绪，忽略覆盖层错误:', msg);
+          return;
+        }
         var detail = document.getElementById('error-detail');
+        if (detail) detail.textContent = msg;
+        var errEl = document.getElementById('app-error');
+        if (errEl) errEl.classList.add('show');
+        var loading = document.getElementById('app-loading');
+        if (loading) loading.style.display = 'none';
+      }
+
+      // 捕获所有未处理的 JS 错误
+      window.addEventListener('error', function(e) {
         var msg = e.message || '未知错误';
         if (e.filename) msg += '\n文件: ' + e.filename;
         if (e.lineno) msg += '\n行号: ' + e.lineno;
-        detail.textContent = msg;
-        document.getElementById('app-error').classList.add('show');
-        document.getElementById('app-loading').style.display = 'none';
+        showAppError(msg);
       });
       window.addEventListener('unhandledrejection', function(e) {
-        var detail = document.getElementById('error-detail');
-        detail.textContent = 'Promise 错误: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason));
-        document.getElementById('app-error').classList.add('show');
-        document.getElementById('app-loading').style.display = 'none';
+        var msg = 'Promise 错误: ' + (e.reason && e.reason.message ? e.reason.message : String(e.reason));
+        showAppError(msg);
       });
 
-      // 5 秒后如果 React 还没渲染（加载界面还在），自动显示提示
+      // 15 秒后如果 React 还没就绪（main.tsx 未设置 __lingoaiReady=true），才显示提示
       setTimeout(function() {
+        if (window.__lingoaiReady) return;
         var loading = document.getElementById('app-loading');
-        if (loading && loading.parentElement && loading.parentElement.children.length === 1) {
-          // React 没有替换 #root 内容，说明 JS 没执行成功
-          var detail = document.getElementById('error-detail');
-          detail.textContent = '页面加载超时（5秒无响应）。\n\n可能原因：\n1. 浏览器缓存了旧版本 JS 文件（已被删除）\n2. 360 安全软件拦截了 JS 执行\n3. 网络不稳定\n\n解决方法：按 Ctrl+Shift+R 强制刷新，或用无痕模式打开。';
-          document.getElementById('app-error').classList.add('show');
-          loading.style.display = 'none';
-        }
-      }, 5000);
+        if (!loading) return; // React 已经接管但未标记 ready（理论上不会发生）
+        showAppError(
+          '页面加载超时（15秒无响应）。\n\n' +
+          '可能原因：\n' +
+          '1. 浏览器缓存了旧版本 JS 文件（已被删除）\n' +
+          '2. 360 安全软件拦截了 JS 执行\n' +
+          '3. 网络不稳定\n\n' +
+          '解决方法：按 Ctrl+Shift+R 强制刷新，或用无痕模式打开。'
+        );
+      }, 15000);
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
