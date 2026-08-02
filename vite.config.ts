@@ -6,6 +6,9 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   base: '/lingoai/',
   plugins: [react(), tailwindcss()],
+  build: {
+    sourcemap: true,
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
